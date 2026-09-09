@@ -94,9 +94,13 @@ The client receives an already assembled release directory. Do not run
 `build_release.ps1` on the client. Keep the current release unchanged and copy
 the supplied directory to a new path, for example:
 
+Run these replacement snippets from a workspace directory that contains the
+`incoming` and `releases` folders.
+
 ```powershell
-$SuppliedRelease = "D:\incoming\1.0.1-client"
-$NewRelease = "C:\VHL\releases\1.0.1-client"
+$ReleaseWorkspace = (Get-Location).Path
+$SuppliedRelease = Join-Path $ReleaseWorkspace "incoming\1.0.1-client"
+$NewRelease = Join-Path $ReleaseWorkspace "releases\1.0.1-client"
 if (-not (Test-Path "$SuppliedRelease\RELEASE_MANIFEST.json" -PathType Leaf)) {
   throw "Supplied release is missing RELEASE_MANIFEST.json"
 }
@@ -119,21 +123,24 @@ without deleting the prior directory:
 # In each running application window:
 # Ctrl+C
 
-Set-Location "C:\VHL\releases\1.0.1-client"
+$NewRelease = Join-Path (Get-Location).Path "releases\1.0.1-client"
+Set-Location $NewRelease
 .\scripts\start_backend.ps1
 ```
 
 In a second PowerShell window:
 
 ```powershell
-Set-Location "C:\VHL\releases\1.0.1-client"
+$NewRelease = Join-Path (Get-Location).Path "releases\1.0.1-client"
+Set-Location $NewRelease
 .\scripts\start_dashboard.ps1
 ```
 
 From a third window, validate the replacement before directing users to it:
 
 ```powershell
-Set-Location "C:\VHL\releases\1.0.1-client"
+$NewRelease = Join-Path (Get-Location).Path "releases\1.0.1-client"
+Set-Location $NewRelease
 .\scripts\health_check.ps1
 conda run -n vhl python .\scripts\smoke_test.py `
   --base-url http://127.0.0.1:8000 `
