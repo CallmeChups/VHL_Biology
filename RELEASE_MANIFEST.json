@@ -1,12 +1,13 @@
 {
     "release_version":  "1.0.0-client",
-    "source_commit":  "35dec3c9e859eea705e06c42e002d8fcccb4a0f0",
-    "build_date_utc":  "2026-09-09T20:27:30Z",
+    "source_commit":  "30b49f846e6b2fa470eb15cbbf736529e9029db1",
+    "build_date_utc":  "2026-09-09T20:45:36Z",
     "python_version":  {
+                           "environment":  "vhl",
                            "runtime":  "python-3.11",
-                           "active":  "3.12.10",
+                           "active":  "unavailable",
                            "verification_status":  "unverified",
-                           "verification_note":  "Active interpreter 3.12.10 does not match declared runtime python-3.11."
+                           "verification_note":  "Conda was not found on PATH; target environment \u0027vhl\u0027 could not be verified."
                        },
     "dependencies":  {
                          "absl-py":  "2.3.1",
@@ -122,7 +123,7 @@
                   },
     "baseline":  {
                      "sample":  "sample-data/representative-sample.txt",
-                     "status":  "failed",
+                     "status":  "unverified",
                      "expected":  {
                                       "peaks":  20,
                                       "classification":  "GGA",
@@ -131,22 +132,16 @@
                                       "approval_status":  "approved",
                                       "source":  "README.md#pipeline-test-result-2026-03-11"
                                   },
-                     "observed":  {
-                                     "peaks":  20,
-                                     "classification":  "gga",
-                                     "classification_probability":  0.7018118473814843,
-                                     "toxicity_percent":  10.05
-                                 },
+                     "observed":  null,
                      "verification":  {
-                                          "status":  "failed",
-                                          "output_status":  "failed",
+                                          "status":  "unverified",
+                                          "output_status":  "unverified",
                                           "runtime_status":  "unverified",
                                           "mismatches":  [
-                                                             "classification_probability",
-                                                             "toxicity_percent"
+
                                                          ],
                                           "approved_baseline":  "approved"
                                       }
                  },
-    "acceptance_status":  "failed"
+    "acceptance_status":  "unverified"
 }
