@@ -157,6 +157,22 @@ conda activate vhl
 - [Codebase Summary](./docs/codebase-summary.md)
 - [Project Roadmap](./docs/project-roadmap.md)
 
+## Windows LAN Client Handoff
+
+For the Windows/Conda client installation, run the backend and Streamlit
+dashboard from the same release directory on a private LAN:
+
+- [Client deployment guide](./CLIENT_DEPLOYMENT.md)
+- [Operations runbook](./OPERATIONS_RUNBOOK.md)
+- [Model card](./MODEL_CARD.md)
+- [Internal API reference](./API_INTERNAL.md)
+- [Release history](./CHANGELOG.md)
+
+The handoff scripts are `scripts\start_backend.ps1`,
+`scripts\start_dashboard.ps1`, `scripts\health_check.ps1`,
+`scripts\build_release.ps1`, and `scripts\smoke_test.py`. The release builder
+creates `RELEASE_MANIFEST.json` with runtime metadata and model checksums.
+
 ## Reports
 
 - Classification improvement: `plans/reports/classification-improvement-260322.md`
