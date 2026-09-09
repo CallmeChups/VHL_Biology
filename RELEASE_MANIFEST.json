@@ -122,7 +122,7 @@
                   },
     "baseline":  {
                      "sample":  "sample-data/representative-sample.txt",
-                     "status":  "unverified",
+                     "status":  "failed",
                      "expected":  {
                                       "peaks":  20,
                                       "classification":  "GGA",
@@ -131,16 +131,22 @@
                                       "approval_status":  "approved",
                                       "source":  "README.md#pipeline-test-result-2026-03-11"
                                   },
-                     "observed":  null,
+                     "observed":  {
+                                     "peaks":  20,
+                                     "classification":  "gga",
+                                     "classification_probability":  0.7018118473814843,
+                                     "toxicity_percent":  10.05
+                                 },
                      "verification":  {
-                                          "status":  "unverified",
-                                          "output_status":  "unverified",
+                                          "status":  "failed",
+                                          "output_status":  "failed",
                                           "runtime_status":  "unverified",
                                           "mismatches":  [
-
+                                                             "classification_probability",
+                                                             "toxicity_percent"
                                                          ],
                                           "approved_baseline":  "approved"
                                       }
                  },
-    "acceptance_status":  "unverified"
+    "acceptance_status":  "failed"
 }

@@ -250,3 +250,35 @@ Result: **PASS — 44 passed** with the same two pre-existing
 
 Python 3.11/Conda validation, approved-baseline matching, and second-machine
 LAN evidence remain unavailable. No acceptance status was changed to passed.
+
+## Fix round 3
+
+### Review finding — preserve the known failed smoke observation
+
+The rebuilt release manifest had reset the baseline to `unverified` with no
+observation. Both the repository manifest and the packaged
+`release-test\RELEASE_MANIFEST.json` now preserve the smoke result established
+in the prior local run:
+
+- Peaks: `20`
+- Classification: `gga`
+- Classification probability: `0.7018118473814843` (approved `0.784`)
+- Toxicity: `10.05` (approved `5.31`)
+
+The baseline and its output verification are `failed`, with mismatches
+`classification_probability` and `toxicity_percent`; top-level
+`acceptance_status` is also `failed`. The runtime verification remains
+`unverified` because Python 3.11 and Conda were unavailable. Second-machine LAN
+validation also remains unavailable; only local dashboard reachability on port
+8501 was verified.
+
+The final package metadata remains aligned: source commit
+`35dec3c9e859eea705e06c42e002d8fcccb4a0f0` is the commit used to assemble the
+package, and all 12 model SHA-256 entries still match the packaged files.
+
+### Fix-round validation
+
+- Manifest status/observation and checksum audit: **PASS**.
+- Forbidden-file and developer-path audit: **PASS**.
+- `pytest backend/tests tests -q`: **PASS — 44 passed** (same two pre-existing
+  `.pytest_cache` permission warnings).
