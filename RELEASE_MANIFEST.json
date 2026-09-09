@@ -1,7 +1,7 @@
 {
     "release_version":  "1.0.0-client",
-    "source_commit":  "4f01342a9a07213f2691a5774aa118be7cd23728",
-    "build_date_utc":  "2026-09-09T19:46:12Z",
+    "source_commit":  "22ca3794da94ae3dfb3f6fdd8da638b21aca4fa5",
+    "build_date_utc":  "2026-09-09T19:47:46Z",
     "python_version":  {
                            "runtime":  "python-3.11",
                            "active":  "3.12.10"
