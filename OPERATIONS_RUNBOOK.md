@@ -155,25 +155,26 @@ The active release is the directory whose launcher windows are running.
 
 1. Stop the backend and dashboard in the active release.
 2. Record the failing release version and preserve its manifest and logs.
-3. Set a variable to the prior, known-good release directory and verify its
-   manifest:
+3. From the workspace directory that contains the `releases` folder, derive the
+   prior, known-good release directory and verify its manifest:
 
    ```powershell
-   $PriorRelease = "C:\VHL\releases\1.0.0-client"
+   $ReleaseWorkspace = (Get-Location).Path
+   $PriorRelease = Join-Path $ReleaseWorkspace "releases\1.0.0-client"
    Test-Path "$PriorRelease\RELEASE_MANIFEST.json" -PathType Leaf
    ```
 
 4. In one PowerShell window, change to that directory and start its backend:
 
    ```powershell
-   Set-Location "C:\VHL\releases\1.0.0-client"
+   Set-Location $PriorRelease
    .\scripts\start_backend.ps1
    ```
 
    In a second window, start its dashboard:
 
    ```powershell
-   Set-Location "C:\VHL\releases\1.0.0-client"
+      Set-Location $PriorRelease
    .\scripts\start_dashboard.ps1
    ```
 
@@ -181,7 +182,7 @@ The active release is the directory whose launcher windows are running.
    the prior directory:
 
    ```powershell
-   Set-Location "C:\VHL\releases\1.0.0-client"
+Set-Location $PriorRelease
    .\scripts\health_check.ps1
    conda run -n vhl python .\scripts\smoke_test.py `
      --base-url http://127.0.0.1:8000 `

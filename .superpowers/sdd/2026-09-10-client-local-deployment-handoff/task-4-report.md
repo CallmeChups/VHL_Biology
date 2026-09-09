@@ -123,3 +123,84 @@ execution, manifest checksums, and documentation portability checks are
 verified. Clean Python 3.11/Conda installation and second-machine LAN
 acceptance are unavailable. The representative output does not match the
 approved baseline, so client acceptance must remain **FAILED** pending review.
+
+## Fix round 1
+
+### Review finding 1 — acceptance gates remain explicit
+
+No unavailable gate was changed to a pass. The release manifest remains
+`acceptance_status: "failed"` with:
+
+- Python 3.11/Conda installation: **unavailable** in this environment
+  (only Python 3.12.10 was available and Conda was not on `PATH`).
+- Approved representative baseline: **failed**; the observed probability
+  (`0.7018118473814843`) and toxicity (`10.05`) do not match the approved
+  values (`0.784` and `5.31`).
+- Second-machine LAN acceptance: **unavailable**; no second machine,
+  client-browser evidence, or firewall validation was available.
+
+The client must provide the following evidence before acceptance can change:
+
+```powershell
+# From the release directory, create and verify the declared environment.
+conda create -n vhl python=3.11 -y
+conda activate vhl
+python --version
+conda --version
+conda run -n vhl python -m pip install -r .\requirements.txt
+conda run -n vhl python -m pip install -r .\backend\requirements.txt
+
+# Start both release processes, then verify health and the approved baseline.
+.\scripts\health_check.ps1
+conda run -n vhl python .\scripts\smoke_test.py `
+  --base-url http://127.0.0.1:8000 `
+  --sample .\sample-data\representative-sample.txt `
+  --manifest .\RELEASE_MANIFEST.json
+```
+
+Attach `python --version`, `conda --version`, the health output, the complete
+smoke output, and the resulting manifest. For these two gates, the manifest
+must show `python_version.verification_status: "passed"` and
+`baseline.verification.status: "passed"` with no mismatches; do not edit those
+values manually. This does not close client acceptance while the LAN gate is
+open.
+
+From a second machine on the same private LAN, run:
+
+```powershell
+Test-NetConnection <server-ip> -Port 8501
+Invoke-WebRequest http://<server-ip>:8501 -UseBasicParsing
+```
+
+Attach both command outputs and a screenshot showing the representative upload
+and result at `http://<server-ip>:8501`. The screenshot must demonstrate that
+an ordinary client uses port 8501; no client request to port 8000 is acceptance
+evidence. Only after all three gates and their evidence are reviewed may the
+client acceptance record be changed; no acceptance status was changed in this
+validation.
+
+### Review finding 2 — release path portability
+
+The rollback examples in `OPERATIONS_RUNBOOK.md` and the packaged
+`release-test\OPERATIONS_RUNBOOK.md` now derive paths from the current
+workspace via `$ReleaseWorkspace` and `$PriorRelease`; the absolute
+`C:\VHL\releases\...` examples were removed.
+
+The portability audit was expanded to detect every drive-rooted Windows path,
+not only `D:\` and `C:\Users`:
+
+```powershell
+rg -n '[A-Za-z]:\\|/home/|/workspace/' .\release-test
+```
+
+Result: **PASS — no matches**. The existing forbidden-file audit also returned
+no matches. The source and packaged runbooks contain no drive-rooted path.
+
+### Fix-round validation
+
+```powershell
+pytest backend/tests tests -q
+```
+
+Result: **PASS — 44 passed** (same pre-existing `.pytest_cache` permission
+warnings). No model files, inference code, or model behavior changed.
