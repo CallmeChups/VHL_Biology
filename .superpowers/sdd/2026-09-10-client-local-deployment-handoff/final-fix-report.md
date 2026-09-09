@@ -30,6 +30,7 @@ Date: 2026-09-10
 
 ## Concerns
 
-- Acceptance remains **unverified** for Python 3.11/Conda and second-machine
-  LAN evidence. No unavailable acceptance evidence was fabricated.
+- Manifest `acceptance_status` remains **unverified** because Python 3.11/Conda,
+  approved smoke-baseline execution, and second-machine LAN evidence were not
+  available here. No unavailable acceptance evidence was fabricated.
 - The generated source manifest identifies fix commit `30b49f8`.
