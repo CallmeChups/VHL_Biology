@@ -64,6 +64,9 @@ def run_smoke_test(base_url: str, sample_path: Path) -> None:
     peaks_body = _post(base_url, f"/session/{session_id}/peaks", "peaks")
     if not isinstance(peaks_body, list) or not peaks_body:
         raise RuntimeError("peaks: response contained no extracted peaks")
+    peak_fields = {"No.peak", "Doin (mV)", "DOmin (mV)", "DDO (mV)"}
+    if not all(isinstance(row, dict) and peak_fields <= row.keys() for row in peaks_body):
+        raise RuntimeError("peaks: response rows were missing required fields")
     print(f"PASS peaks ({len(peaks_body)} rows)")
 
     classify_body = _post(base_url, f"/session/{session_id}/classify", "classification")
@@ -75,6 +78,9 @@ def run_smoke_test(base_url: str, sample_path: Path) -> None:
     phase_body = _post(base_url, f"/session/{session_id}/phase", "phase")
     if not isinstance(phase_body, list) or not phase_body:
         raise RuntimeError("phase: response contained no phase rows")
+    phase_fields = {"Tag", "phase_confidence"}
+    if not all(isinstance(row, dict) and phase_fields <= row.keys() for row in phase_body):
+        raise RuntimeError("phase: response rows were missing required fields")
     print(f"PASS phase ({len(phase_body)} rows)")
 
     toxicity_body = _post(base_url, f"/session/{session_id}/toxicity", "toxicity")
