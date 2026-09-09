@@ -167,3 +167,20 @@ data/
 /docs
 /plans
 CLAUDE.md
+
+# Client release artifacts
+release/
+release-*/
+*.zip
+*.tar.gz
+RELEASE_MANIFEST.json
+CHECKSUMS.*
+*.sha256
+
+# Local runtime output and environment overrides
+runtime-logs/
+logs/
+*.out
+.env.local
+.env.*.local
+.envrc
