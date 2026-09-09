@@ -183,6 +183,29 @@ if ($null -ne $pythonCommand) {
   }
 }
 
+$runtimeMinor = $null
+$runtimeMatch = [regex]::Match($runtimePython, "(\d+\.\d+)")
+if ($runtimeMatch.Success) {
+  $runtimeMinor = $runtimeMatch.Groups[1].Value
+}
+$activeMinor = $null
+$activeMatch = [regex]::Match($activePython, "(\d+\.\d+)")
+if ($activeMatch.Success) {
+  $activeMinor = $activeMatch.Groups[1].Value
+}
+$runtimeVerificationStatus = "unverified"
+$runtimeVerificationNote = "The release assembly does not prove the declared runtime."
+if ($null -ne $runtimeMinor -and $runtimeMinor -eq $activeMinor) {
+  $runtimeVerificationStatus = "passed"
+  $runtimeVerificationNote = "The active interpreter matches runtime.txt."
+}
+elseif ($activePython -eq "unavailable") {
+  $runtimeVerificationNote = "No active Python interpreter was available during release assembly."
+}
+else {
+  $runtimeVerificationNote = "Active interpreter $activePython does not match declared runtime $runtimePython."
+}
+
 $dependencies = [ordered]@{}
 foreach ($requirementsFile in @("requirements.txt", "requirements-frontend.txt", "backend\requirements.txt")) {
   $requirementsPath = Join-Path $repositoryRoot $requirementsFile
@@ -209,12 +232,22 @@ foreach ($modelFile in $modelFiles) {
 
 $baseline = [ordered]@{
   sample = "sample-data/representative-sample.txt"
-  status = "expected"
+  status = "unverified"
   expected = [ordered]@{
     peaks = 20
     classification = "GGA"
     classification_probability = 0.784
     toxicity_percent = 5.31
+    approval_status = "approved"
+    source = "README.md#pipeline-test-result-2026-03-11"
+  }
+  observed = $null
+  verification = [ordered]@{
+    status = "unverified"
+    output_status = "unverified"
+    runtime_status = $runtimeVerificationStatus
+    mismatches = @()
+    approved_baseline = "approved"
   }
 }
 
@@ -225,11 +258,14 @@ $manifest = [ordered]@{
   python_version = [ordered]@{
     runtime = $runtimePython
     active = $activePython
+    verification_status = $runtimeVerificationStatus
+    verification_note = $runtimeVerificationNote
   }
   dependencies = $dependencies
   runtime_models = $runtimeModelPaths
   checksums = $checksums
   baseline = $baseline
+  acceptance_status = "unverified"
 }
 
 $manifestJson = $manifest | ConvertTo-Json -Depth 8
