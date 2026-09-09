@@ -181,6 +181,8 @@ CHECKSUMS.*
 runtime-logs/
 logs/
 *.out
+/frontend_logs*.json
+/frontend_logs*.txt
 .env.local
 .env.*.local
 .envrc

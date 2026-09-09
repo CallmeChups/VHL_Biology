@@ -5,7 +5,10 @@ param(
   [string]$Version,
 
   [Parameter(Mandatory = $true)]
-  [string]$OutputDirectory
+  [string]$OutputDirectory,
+
+  [ValidatePattern("^[A-Za-z0-9][A-Za-z0-9._-]*$")]
+  [string]$EnvironmentName = "vhl"
 )
 
 $ErrorActionPreference = "Stop"
@@ -137,17 +140,23 @@ $representativeSample = $representativeSampleItem.FullName.Substring($repository
 Copy-ReleaseFile -SourceRelativePath $representativeSample `
   -DestinationRelativePath "sample-data\representative-sample.txt"
 
-# These documents are produced by the documentation handoff task. They are
-# optional here so the assembly script is usable before that task is complete.
+# README and CHANGELOG are useful context but are not required to run the client.
 foreach ($document in @(
   "README.md",
-  "CLIENT_DEPLOYMENT.md",
-  "OPERATIONS_RUNBOOK.md",
-  "MODEL_CARD.md",
-  "API_INTERNAL.md",
   "CHANGELOG.md"
 )) {
   Copy-ReleaseFile -SourceRelativePath $document -DestinationRelativePath $document -Optional
+}
+
+# These documents are part of the client handoff and must be present in every
+# release package.
+foreach ($document in @(
+  "CLIENT_DEPLOYMENT.md",
+  "OPERATIONS_RUNBOOK.md",
+  "MODEL_CARD.md",
+  "API_INTERNAL.md"
+)) {
+  Copy-ReleaseFile -SourceRelativePath $document -DestinationRelativePath $document
 }
 
 # Do not allow a local secret to be silently hidden by the allowlist. Existing
@@ -175,11 +184,30 @@ if ([string]::IsNullOrWhiteSpace($runtimePython)) {
 }
 
 $activePython = "unavailable"
-$pythonCommand = Get-Command python -ErrorAction SilentlyContinue
-if ($null -ne $pythonCommand) {
-  $pythonOutput = @(& $pythonCommand.Source --version 2>&1)
-  if ($LASTEXITCODE -eq 0 -and $pythonOutput.Count -gt 0) {
-    $activePython = ($pythonOutput -join " ").Trim() -replace "^Python\s+", ""
+$runtimeVerificationStatus = "unverified"
+$runtimeVerificationNote = "The release assembly does not prove the declared runtime."
+$condaCommand = Get-Command conda -ErrorAction SilentlyContinue
+if ($null -eq $condaCommand) {
+  $runtimeVerificationNote = "Conda was not found on PATH; target environment '$EnvironmentName' could not be verified."
+}
+else {
+  $condaOutput = @(& conda run -n $EnvironmentName python --version 2>&1)
+  $condaExitCode = $LASTEXITCODE
+  $condaOutputText = ($condaOutput -join " ").Trim()
+  if ($condaExitCode -eq 0 -and $condaOutput.Count -gt 0) {
+    $versionMatch = [regex]::Match($condaOutputText, "Python\s+(\d+\.\d+(?:\.\d+)?)")
+    if ($versionMatch.Success) {
+      $activePython = $versionMatch.Groups[1].Value
+    }
+    else {
+      $runtimeVerificationNote = "Conda environment '$EnvironmentName' returned no parseable Python version."
+    }
+  }
+  else {
+    if ([string]::IsNullOrWhiteSpace($condaOutputText)) {
+      $condaOutputText = "no diagnostic output"
+    }
+    $runtimeVerificationNote = "Conda environment '$EnvironmentName' could not run python --version (exit code $condaExitCode): $condaOutputText"
   }
 }
 
@@ -193,17 +221,15 @@ $activeMatch = [regex]::Match($activePython, "(\d+\.\d+)")
 if ($activeMatch.Success) {
   $activeMinor = $activeMatch.Groups[1].Value
 }
-$runtimeVerificationStatus = "unverified"
-$runtimeVerificationNote = "The release assembly does not prove the declared runtime."
 if ($null -ne $runtimeMinor -and $runtimeMinor -eq $activeMinor) {
   $runtimeVerificationStatus = "passed"
-  $runtimeVerificationNote = "The active interpreter matches runtime.txt."
+  $runtimeVerificationNote = "Target Conda environment '$EnvironmentName' matches runtime.txt."
 }
-elseif ($activePython -eq "unavailable") {
-  $runtimeVerificationNote = "No active Python interpreter was available during release assembly."
+elseif ($activePython -eq "unavailable" -and $runtimeVerificationNote -eq "The release assembly does not prove the declared runtime.") {
+  $runtimeVerificationNote = "Target Conda environment '$EnvironmentName' did not provide a verifiable Python interpreter."
 }
-else {
-  $runtimeVerificationNote = "Active interpreter $activePython does not match declared runtime $runtimePython."
+elseif ($activePython -ne "unavailable") {
+  $runtimeVerificationNote = "Target Conda environment '$EnvironmentName' provides Python $activePython, which does not match declared runtime $runtimePython."
 }
 
 $dependencies = [ordered]@{}
@@ -256,6 +282,7 @@ $manifest = [ordered]@{
   source_commit = $sourceCommit
   build_date_utc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
   python_version = [ordered]@{
+    environment = $EnvironmentName
     runtime = $runtimePython
     active = $activePython
     verification_status = $runtimeVerificationStatus

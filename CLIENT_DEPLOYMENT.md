@@ -70,7 +70,7 @@ This invokes `conda run -n vhl uvicorn backend.main:app` with bind address
 `0.0.0.0` and port `8000`. To override a value, use the launcher parameters:
 
 ```powershell
-.\scripts\start_backend.ps1 -BindHost 0.0.0.0 -Port 8000 -EnvironmentName vhl
+.\scripts\start_backend.ps1 -Host 0.0.0.0 -Port 8000 -EnvironmentName vhl
 ```
 
 Start the dashboard in the second window:
@@ -85,7 +85,7 @@ explicit form is:
 
 ```powershell
 .\scripts\start_dashboard.ps1 `
-  -BindHost 0.0.0.0 `
+  -Host 0.0.0.0 `
   -Port 8501 `
   -BackendUrl http://127.0.0.1:8000 `
   -EnvironmentName vhl
