@@ -204,3 +204,49 @@ pytest backend/tests tests -q
 
 Result: **PASS — 44 passed** (same pre-existing `.pytest_cache` permission
 warnings). No model files, inference code, or model behavior changed.
+
+## Fix round 2
+
+### Review finding 1 — rollback commands are process-local
+
+`OPERATIONS_RUNBOOK.md` now initializes `$PriorRelease` from
+`(Get-Location).Path` inside every rollback PowerShell block. The backend,
+dashboard, and validation windows no longer depend on a variable created in a
+different PowerShell process. The packaged runbook was checked with the same
+rule: all four rollback blocks independently derive the prior release path.
+
+### Review finding 2 — final release rebuilt
+
+After committing the runbook fix, the release builder was run again:
+
+```powershell
+Remove-Item -Recurse -Force .\release-test -ErrorAction SilentlyContinue
+.\scripts\build_release.ps1 -Version 1.0.0-client -OutputDirectory .\release-test
+```
+
+The rebuilt package contains 49 files. Its generated manifest records:
+
+- Source commit: `35dec3c9e859eea705e06c42e002d8fcccb4a0f0`
+- Build time: `2026-09-09T20:27:30Z`
+- Model checksum entries: 12
+- Declared runtime: Python 3.11
+- Active build runtime: Python 3.12.10 (`unverified`)
+- Baseline and acceptance status: `unverified` (the builder was rerun; no
+  unavailable gate was converted to a pass)
+
+The manifest audit recomputed all 12 packaged model SHA-256 checksums and
+confirmed they match the generated manifest. It also confirmed no forbidden
+temporary, secret, cache, log, or developer-absolute-path files are in the
+package. The rollback block audit passed.
+
+### Fix-round validation
+
+```powershell
+pytest backend/tests tests -q
+```
+
+Result: **PASS — 44 passed** with the same two pre-existing
+`.pytest_cache` permission warnings.
+
+Python 3.11/Conda validation, approved-baseline matching, and second-machine
+LAN evidence remain unavailable. No acceptance status was changed to passed.
