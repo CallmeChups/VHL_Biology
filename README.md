@@ -168,10 +168,16 @@ dashboard from the same release directory on a private LAN:
 - [Internal API reference](./API_INTERNAL.md)
 - [Release history](./CHANGELOG.md)
 
-The handoff scripts are `scripts\start_backend.ps1`,
-`scripts\start_dashboard.ps1`, `scripts\health_check.ps1`,
-`scripts\build_release.ps1`, and `scripts\smoke_test.py`. The release builder
-creates `RELEASE_MANIFEST.json` with runtime metadata and model checksums.
+The handoff scripts are:
+
+- [`start_backend.ps1`](scripts/start_backend.ps1)
+- [`start_dashboard.ps1`](scripts/start_dashboard.ps1)
+- [`health_check.ps1`](scripts/health_check.ps1)
+- [`build_release.ps1`](scripts/build_release.ps1)
+- [`smoke_test.py`](scripts/smoke_test.py)
+
+The release builder creates `RELEASE_MANIFEST.json` with runtime metadata and
+model checksums.
 
 ## Reports
 

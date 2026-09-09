@@ -66,8 +66,16 @@ export reports before planned maintenance.
 
 ## Release replacement
 
-Build a new release into a new or empty directory; never build over a running
-release:
+### Maintainer-side release building
+
+Only a maintainer with the complete source repository should run the release
+builder. It reads source-repository data, including the representative sample
+under `data\GGA\...`, and records the source Git commit; a deployed client
+release does not contain those source paths and must not be used to build
+another release.
+
+From the **source repository root**, a maintainer can assemble a new release
+into a new or empty directory:
 
 ```powershell
 .\scripts\build_release.ps1 `
@@ -76,23 +84,156 @@ release:
 ```
 
 The builder writes `RELEASE_MANIFEST.json`, SHA-256 model checksums, runtime
-metadata, and the expected representative baseline. Run the backend and
-dashboard from the new directory, then run `health_check.ps1` and the smoke
-test from [CLIENT_DEPLOYMENT.md](CLIENT_DEPLOYMENT.md). Keep the prior release
-directory unchanged until the client accepts the replacement.
+metadata, and the expected representative baseline. The maintainer should run
+the backend, dashboard, health check, and smoke test against the assembled
+directory before supplying it to the client.
+
+### Client-side replacement from a supplied release
+
+The client receives an already assembled release directory. Do not run
+`build_release.ps1` on the client. Keep the current release unchanged and copy
+the supplied directory to a new path, for example:
+
+```powershell
+$SuppliedRelease = "D:\incoming\1.0.1-client"
+$NewRelease = "C:\VHL\releases\1.0.1-client"
+if (-not (Test-Path "$SuppliedRelease\RELEASE_MANIFEST.json" -PathType Leaf)) {
+  throw "Supplied release is missing RELEASE_MANIFEST.json"
+}
+if (-not (Test-Path "$SuppliedRelease\scripts\start_backend.ps1" -PathType Leaf)) {
+  throw "Supplied release is missing its launcher scripts"
+}
+if (Test-Path $NewRelease) {
+  throw "New release directory already exists; choose a new path"
+}
+New-Item -ItemType Directory -Path $NewRelease -Force | Out-Null
+Copy-Item -Path (Join-Path $SuppliedRelease "*") `
+  -Destination $NewRelease -Recurse -Force
+$SuppliedRelease = $NewRelease
+```
+
+Stop the processes in the current release, then start the supplied release
+without deleting the prior directory:
+
+```powershell
+# In each running application window:
+# Ctrl+C
+
+Set-Location "C:\VHL\releases\1.0.1-client"
+.\scripts\start_backend.ps1
+```
+
+In a second PowerShell window:
+
+```powershell
+Set-Location "C:\VHL\releases\1.0.1-client"
+.\scripts\start_dashboard.ps1
+```
+
+From a third window, validate the replacement before directing users to it:
+
+```powershell
+Set-Location "C:\VHL\releases\1.0.1-client"
+.\scripts\health_check.ps1
+conda run -n vhl python .\scripts\smoke_test.py `
+  --base-url http://127.0.0.1:8000 `
+  --sample .\sample-data\representative-sample.txt `
+  --manifest .\RELEASE_MANIFEST.json
+```
+
+Keep the previous release directory until the client accepts the replacement.
+The active release is the directory whose launcher windows are running.
 
 ## Rollback
 
 1. Stop the backend and dashboard in the active release.
 2. Record the failing release version and preserve its manifest and logs.
-3. Change the working directory to the prior release directory.
-4. Run its `scripts\start_backend.ps1` and `scripts\start_dashboard.ps1`.
-5. Run `scripts\health_check.ps1` and a representative analysis.
+3. Set a variable to the prior, known-good release directory and verify its
+   manifest:
+
+   ```powershell
+   $PriorRelease = "C:\VHL\releases\1.0.0-client"
+   Test-Path "$PriorRelease\RELEASE_MANIFEST.json" -PathType Leaf
+   ```
+
+4. In one PowerShell window, change to that directory and start its backend:
+
+   ```powershell
+   Set-Location "C:\VHL\releases\1.0.0-client"
+   .\scripts\start_backend.ps1
+   ```
+
+   In a second window, start its dashboard:
+
+   ```powershell
+   Set-Location "C:\VHL\releases\1.0.0-client"
+   .\scripts\start_dashboard.ps1
+   ```
+
+5. In a third window, run the health check and a representative analysis from
+   the prior directory:
+
+   ```powershell
+   Set-Location "C:\VHL\releases\1.0.0-client"
+   .\scripts\health_check.ps1
+   conda run -n vhl python .\scripts\smoke_test.py `
+     --base-url http://127.0.0.1:8000 `
+     --sample .\sample-data\representative-sample.txt `
+     --manifest .\RELEASE_MANIFEST.json
+   ```
 6. Restore client reports from the backup if they were created in the failed
    release directory.
 
 Rollback is a directory switch; do not copy model files selectively between
 versions unless the manifest and checksums are revalidated.
+
+## Alternate dashboard port
+
+If port `8501` is unavailable, choose one dashboard port and use it in every
+dashboard-facing setting. The backend port can remain `8000`; the dashboard
+launcher passes `-BackendUrl` to the app as `BACKEND_URL`:
+
+In the backend PowerShell window:
+
+```powershell
+.\scripts\start_backend.ps1 -Port 8000
+```
+
+In the dashboard PowerShell window:
+
+```powershell
+.\scripts\start_dashboard.ps1 `
+  -Port 8851 `
+  -BackendUrl "http://127.0.0.1:8000"
+```
+
+In a third PowerShell window, the matching health-check URLs are:
+
+```powershell
+.\scripts\health_check.ps1 `
+  -BackendUrl "http://127.0.0.1:8000" `
+  -DashboardUrl "http://127.0.0.1:8851"
+```
+
+Run the matching firewall rule in elevated PowerShell:
+
+```powershell
+$DashboardPort = 8851
+New-NetFirewallRule `
+  -DisplayName "VHL Biology Dashboard $DashboardPort" `
+  -Direction Inbound `
+  -Protocol TCP `
+  -LocalPort $DashboardPort `
+  -Action Allow `
+  -Profile Private
+```
+
+If the backend port is also changed, pass the same new value to
+`start_backend.ps1 -Port`, `start_dashboard.ps1 -BackendUrl
+http://127.0.0.1:<backend-port>`, and `health_check.ps1 -BackendUrl`; update
+any approved backend firewall rule separately. Clients must browse to
+`http://<server-ip>:<dashboard-port>` (for example,
+`http://192.168.1.20:8851`), not port `8501`.
 
 ## Troubleshooting
 
