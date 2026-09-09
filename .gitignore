@@ -173,7 +173,7 @@ release/
 release-*/
 *.zip
 *.tar.gz
-RELEASE_MANIFEST.json
+!RELEASE_MANIFEST.json
 CHECKSUMS.*
 *.sha256
 
