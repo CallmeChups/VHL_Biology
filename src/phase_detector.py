@@ -80,13 +80,14 @@ def _gga_algorithm(peaks_df: pd.DataFrame):
     return preds, confs
 
 
-def update_phase_tags(peaks_df: pd.DataFrame, cls_label: str) -> pd.DataFrame:
+def update_phase_tags(peaks_df: pd.DataFrame, cls_label: str | None = None) -> pd.DataFrame:
     """
     Rewrite the 'Tag' column with phase labels and add 'phase_confidence'.
 
     Args:
         peaks_df: must contain ['No.peak','Doin (mV)','DOmin (mV)','DDO (mV)']
-        cls_label: 'GGA' or 'Metal' (from CatBoost classifier)
+        cls_label: 'GGA' or 'Metal' (from CatBoost classifier). When omitted,
+            use the generic GGA change-point algorithm.
 
     Returns:
         peaks_df with Tag in {'phase1','transition','phase2'} and phase_confidence column.

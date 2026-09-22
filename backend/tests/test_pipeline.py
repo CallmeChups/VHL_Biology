@@ -101,10 +101,12 @@ def test_phase_tags_peaks():
     assert tags <= {"phase1", "transition", "phase2"}
 
 
-def test_phase_without_classification_returns_409():
+def test_phase_without_classification_uses_generic_detector():
     sid = _session_with_peaks()
     resp = client.post(f"/session/{sid}/phase")
-    assert resp.status_code == 409
+    assert resp.status_code == 200
+    rows = resp.json()
+    assert {row["Tag"] for row in rows} <= {"phase1", "transition", "phase2"}
 
 
 def _session_with_phase() -> str:

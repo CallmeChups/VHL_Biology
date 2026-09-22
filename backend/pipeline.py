@@ -170,10 +170,8 @@ def detect_phase(session_id: str):
     session = require_session(session_id)
     if session.get("peaks_df") is None:
         raise HTTPException(status_code=409, detail="Extract peaks before phase detection")
-    if session.get("cls_pred") is None:
-        raise HTTPException(status_code=409, detail="Classify before phase detection")
 
-    peaks_df = update_phase_tags(session["peaks_df"], session["cls_pred"])
+    peaks_df = update_phase_tags(session["peaks_df"], session.get("cls_pred"))
     session["peaks_df"] = peaks_df
     return peaks_df.where(pd.notnull(peaks_df), None).to_dict(orient="records")
 

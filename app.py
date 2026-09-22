@@ -95,29 +95,15 @@ _LABEL_DISPLAY = {
 }
 
 def _get_step_labels() -> list:
-    cls = st.session_state.get("cls_pred") or ""
-    if cls == "gga":
-        return ["Upload", "Peak Extraction", "Classification",
-                "Phase Detection", "Tổng kết"]
-    return ["Upload", "Peak Extraction", "Classification",
-            "Phase Detection", "Toxicity", "Tổng kết"]
+    return ["Upload", "Peak Extraction", "Phase Detection",
+            "BOD Concentration", "Classification", "Tổng kết"]
 
 def _render_indicator():
-    is_organic = (st.session_state.get("cls_pred") or "") == "gga"
     labels = _get_step_labels()
-
-    # Map step number → indicator highlight index
-    if is_organic:
-        step_to_idx = {0: 0, 1: 1, 2: 2, 3: 3, 4: 3, 5: 4}
-        idx_to_time_key = {1: 1, 2: 2, 3: 3}
-    else:
-        step_to_idx = {i: i for i in range(6)}
-        idx_to_time_key = {1: 1, 2: 2, 3: 3, 4: 4}
-
-    cur = step_to_idx.get(st.session_state.step, st.session_state.step)
+    cur = st.session_state.step
     parts = []
     for i, label in enumerate(labels):
-        t = st.session_state.step_times.get(idx_to_time_key.get(i))
+        t = st.session_state.step_times.get(i)
         tstr = f" <small>✓{t}s</small>" if t else (" <small>✓</small>" if i < cur else "")
         if i < cur:
             parts.append(
@@ -350,16 +336,16 @@ def render_step_1():
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  STEP 2 — CLASSIFICATION
+#  STEP 4 — CLASSIFICATION
 # ═══════════════════════════════════════════════════════════════════════════════
 def render_step_2():
-    st.markdown('<p class="step-title">🧬 Bước 3 — Phân loại mẫu</p>', unsafe_allow_html=True)
+    st.markdown('<p class="step-title">🧬 Bước 5 — Phân loại mẫu</p>', unsafe_allow_html=True)
     st.markdown(
         '<p class="step-desc">'
         'Mô hình <b>CatBoost</b> (81 đặc trưng, accuracy 84.4% trên 518 file) phân loại '
         'mẫu thành <b>Organic Pollution</b> (nước thải sinh hoạt) hoặc '
         '<b>Metal Pollution</b> (có kim loại nặng). '
-        'Nhãn phân loại này ảnh hưởng trực tiếp đến thuật toán phát hiện pha ở bước tiếp theo.'
+        'Kết quả này được dùng để phân biệt Organic Pollution và Metal Pollution trong báo cáo.'
         '</p>',
         unsafe_allow_html=True,
     )
@@ -391,9 +377,9 @@ def render_step_2():
                     st.session_state.cls_pred = "Lỗi"
                     st.session_state.cls_prob = 0.0
                     st.session_state.cls_error = str(e)
-                st.session_state.step_times[2] = round(time.time() - t0, 2)
+                st.session_state.step_times[4] = round(time.time() - t0, 2)
 
-        elapsed = st.session_state.step_times.get(2)
+        elapsed = st.session_state.step_times.get(4)
         if elapsed:
             st.markdown(f'<span class="elapsed-badge">⏱ {elapsed}s</span>', unsafe_allow_html=True)
 
@@ -424,22 +410,36 @@ def render_step_2():
             with st.expander("Chi tiết lỗi"):
                 st.code(st.session_state.cls_error)
 
+        if (st.session_state.cls_pred or "") != "gga" and st.session_state.tox_val is None:
+            try:
+                tox = client.toxicity(st.session_state.session_id)
+                st.session_state.update(
+                    tox_val=tox["tox_val"],
+                    stage1_tag=tox["stage1"],
+                    stage2_tag=tox["stage2"],
+                    s1_ddo=tox["s1_ddo"],
+                    s2_ddo=tox["s2_ddo"],
+                )
+            except BackendError as e:
+                st.session_state.phase_error = str(e)
+
     st.markdown("---")
-    _nav(back=1, nxt=3)
+    _nav(back=3, nxt=5)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  STEP 3 — PHASE DETECTION
+#  STEP 2 — PHASE DETECTION
 # ═══════════════════════════════════════════════════════════════════════════════
 def render_step_3():
-    st.markdown('<p class="step-title">🔍 Bước 4 — Phát hiện ranh giới pha</p>', unsafe_allow_html=True)
+    st.markdown('<p class="step-title">🔍 Bước 3 — Phát hiện ranh giới pha</p>', unsafe_allow_html=True)
     st.markdown(
         '<p class="step-desc">'
         'Mỗi peak được gán nhãn <b>phase1</b> (ổn định ban đầu), '
         '<b>transition</b> (vùng chuyển tiếp không ổn định), '
         'hoặc <b>phase2</b> (ổn định cuối). '
-        'Routing: GGA → change-point algorithm · Metal → Random Forest (CV 93%) · '
-        'HH → Random Forest (CV 94%). Toxicity sẽ tính trên phase1 vs phase2, bỏ qua transition.'
+        'Bước này chạy trước classification bằng thuật toán change-point chung để '
+        'tạo phase1, transition và phase2 cho cả hai loại mẫu. Toxicity sẽ tính '
+        'trên phase1 vs phase2, bỏ qua transition.'
         '</p>',
         unsafe_allow_html=True,
     )
@@ -449,7 +449,7 @@ def render_step_3():
         _flow([
             {"label": "📋 peaks_df", "bg": "#dbeafe", "border": "#60a5fa", "tc": "#1e40af"},
             "↓",
-            {"label": "◇ Routing\nn&lt;8 → fallback\nHH → RF (94%)\nMetal → RF (93%)\nGGA → change-pt", "bg": "#fefce8", "border": "#fbbf24", "tc": "#92400e"},
+            {"label": "◇ Generic change-point\nn&lt;8 → fallback\nphase1 → transition → phase2", "bg": "#fefce8", "border": "#fbbf24", "tc": "#92400e"},
             "↓",
             [
                 {"label": "🟡 phase1", "bg": "#fef9c3", "border": "#fbbf24", "tc": "#92400e"},
@@ -467,10 +467,10 @@ def render_step_3():
                     st.session_state.peaks_df = client.records_to_df(records)
                 except Exception as e:
                     st.session_state.phase_error = str(e)
-                st.session_state.step_times[3] = round(time.time() - t0, 2)
+                st.session_state.step_times[2] = round(time.time() - t0, 2)
 
         peaks_df = st.session_state.peaks_df
-        elapsed = st.session_state.step_times.get(3)
+        elapsed = st.session_state.step_times.get(2)
         if elapsed:
             st.markdown(f'<span class="elapsed-badge">⏱ {elapsed}s</span>', unsafe_allow_html=True)
 
@@ -505,19 +505,8 @@ def render_step_3():
                   .format({"Doin (mV)": "{:.2f}", "DOmin (mV)": "{:.2f}", "DDO (mV)": "{:.2f}"}))
         st.dataframe(styled, use_container_width=True, height=380)
 
-    is_organic = (st.session_state.cls_pred or "").strip() == "gga"
     st.markdown("---")
-    if is_organic:
-        bod_enabled = st.checkbox(
-            "📊 Tính nồng độ BOD từ DDO (tùy chọn)",
-            value=st.session_state.bod_enabled,
-            help="Nhập 2 điểm hiệu chuẩn BOD↔DDO để suy ra nồng độ BOD của từng pha",
-            key="chk_bod",
-        )
-        st.session_state.bod_enabled = bod_enabled
-        _nav(back=2, nxt=4 if bod_enabled else 5)
-    else:
-        _nav(back=2, nxt=4)
+    _nav(back=1, nxt=3)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -618,7 +607,7 @@ def render_step_4():
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  STEP 4-BOD — BOD CONCENTRATION (Organic Pollution only)
+#  STEP 3 — BOD CONCENTRATION
 # ═══════════════════════════════════════════════════════════════════════════════
 def render_step_4_bod():
     st.markdown('<p class="step-title">📊 Bước 4 — Tính nồng độ BOD</p>', unsafe_allow_html=True)
@@ -631,7 +620,7 @@ def render_step_4_bod():
         unsafe_allow_html=True,
     )
 
-    # Compute DDO averages from peaks_df (Toxicity step is skipped for Organic)
+    # Use the same GGA calibration for both Organic and Metal samples.
     peaks_df = st.session_state.peaks_df
     p1 = peaks_df[peaks_df["Tag"].str.strip() == "phase1"]
     p2 = peaks_df[peaks_df["Tag"].str.strip() == "phase2"]
@@ -640,7 +629,7 @@ def render_step_4_bod():
 
     if ddo_p1 is None or ddo_p2 is None:
         st.error("Không tìm thấy đủ peaks phase1 / phase2 để tính DDO. Quay lại bước trước.")
-        _nav(back=3, nxt=None)
+        _nav(back=2, nxt=None)
         return
 
     col_form, col_result = st.columns([1, 1])
@@ -666,10 +655,12 @@ def render_step_4_bod():
             st.warning("Nhập đầy đủ 4 giá trị > 0 để tính.")
         else:
             try:
+                t0 = time.time()
                 res = client.bod_calibration(
                     st.session_state.session_id,
                     bod1=bod1, ddo1=ddo1, bod2=bod2, ddo2=ddo2,
                 )
+                st.session_state.step_times[3] = round(time.time() - t0, 2)
                 st.session_state.update(dict(
                     bod_phase1=res["bod_phase1"],
                     bod_phase2=res["bod_phase2"],
@@ -694,7 +685,7 @@ def render_step_4_bod():
                 st.error(str(e))
 
     st.markdown("---")
-    _nav(back=3, nxt=5)
+    _nav(back=2, nxt=4)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -721,15 +712,9 @@ def render_step_5():
     tag_counts = peaks_df["Tag"].value_counts()
     bod_str = " · ".join(f"{cnt} {tag}" for tag, cnt in tag_counts.items())
 
-    is_organic = (st.session_state.cls_pred or "") == "gga"
-    has_bod    = is_organic and st.session_state.bod_enabled and st.session_state.bod_phase1 is not None
     cls_display = _LABEL_DISPLAY.get(st.session_state.cls_pred or "", st.session_state.cls_pred or "—")
 
-    if has_bod:
-        c1, c2, c3, c4, c5 = st.columns(5)
-    else:
-        c1, c2, c3, c4 = st.columns(4)
-        c5 = None
+    c1, c2, c3, c4, c5, c6 = st.columns(6)
 
     with c1:
         st.metric("Số Peak", len(peaks_df))
@@ -739,25 +724,18 @@ def render_step_5():
                   help=f"{(st.session_state.cls_prob or 0) * 100:.1f}% xác suất")
         st.caption(f"{(st.session_state.cls_prob or 0) * 100:.1f}% xác suất")
     with c3:
-        if has_bod:
-            st.metric("BOD Phase 1", f"{st.session_state.bod_phase1:.3f} mg/L")
-        elif not is_organic:
-            st.metric("Độ độc", f"{tox_val}%" if tox_val is not None else "N/A")
-            if stage1 and stage2:
-                st.caption(f"{stage1} → {stage2}")
-        else:
-            st.metric("BOD", "—")
-            st.caption("Không tính (tùy chọn bỏ qua)")
-    if has_bod and c4 is not None:
-        with c4:
-            st.metric("BOD Phase 2", f"{st.session_state.bod_phase2:.3f} mg/L")
-        with c5:
-            st.metric("Tín hiệu", f"{st.session_state.signal_points:,} pts")
-            st.caption(f"{st.session_state.do_min:.2f} – {st.session_state.do_max:.2f} mV")
-    else:
-        with c4:
-            st.metric("Tín hiệu", f"{st.session_state.signal_points:,} pts")
-            st.caption(f"{st.session_state.do_min:.2f} – {st.session_state.do_max:.2f} mV")
+        st.metric("BOD Phase 1", f"{st.session_state.bod_phase1:.3f} mg/L"
+                  if st.session_state.bod_phase1 is not None else "N/A")
+    with c4:
+        st.metric("BOD Phase 2", f"{st.session_state.bod_phase2:.3f} mg/L"
+                  if st.session_state.bod_phase2 is not None else "N/A")
+    with c5:
+        st.metric("Độ độc", f"{tox_val}%" if tox_val is not None else "N/A")
+        if stage1 and stage2:
+            st.caption(f"{stage1} → {stage2}")
+    with c6:
+        st.metric("Tín hiệu", f"{st.session_state.signal_points:,} pts")
+        st.caption(f"{st.session_state.do_min:.2f} – {st.session_state.do_max:.2f} mV")
 
     st.markdown("---")
 
@@ -765,9 +743,9 @@ def render_step_5():
     st.markdown("### ⏱ Thời gian xử lý")
     step_name_map = {
         1: "Peak Extraction",
-        2: "Classification",
-        3: "Phase Detection",
-        4: "BOD Concentration" if is_organic else "Toxicity",
+        2: "Phase Detection",
+        3: "BOD Concentration",
+        4: "Classification",
     }
     rows, total = [], 0.0
     for i, name in step_name_map.items():
@@ -807,8 +785,8 @@ def render_step_5():
 # ═══════════════════════════════════════════════════════════════════════════════
 #  MAIN DISPATCH
 # ═══════════════════════════════════════════════════════════════════════════════
-_RENDERERS = [render_step_0, render_step_1, render_step_2,
-              render_step_3, render_step_4, render_step_5]
+_RENDERERS = [render_step_0, render_step_1, render_step_3,
+              render_step_4_bod, render_step_2, render_step_5]
 
 # Header
 st.markdown("""
@@ -830,10 +808,7 @@ _render_indicator()
 
 def _dispatch():
     step = st.session_state.step
-    if step == 4 and (st.session_state.get("cls_pred") or "") == "gga":
-        render_step_4_bod()
-    else:
-        _RENDERERS[step]()
+    _RENDERERS[step]()
 
 _dispatch()
 
